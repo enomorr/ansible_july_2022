@@ -1,0 +1,51 @@
+ - name: deploying tomcat
+   become: yes
+   vars:
+     tomcat_version: 10.0.20
+     manager_user: "manager"
+     manager_password: "managerpassword"
+     admin_user: "admin"
+     admin_password: :adminpassword"
+   tasks: 
+     - name: adding tomcat user
+       command: sudo useradd -m -d /opt/tomcat -U -s /bin/false tomcat
+     - name: update repo
+       command: sudo apt update
+     - name: install java jdk
+       apt:
+          name: openjdk-8-jdk
+          state: present
+     - name: download tomcat server packages
+       get_url:
+         url: https://dlcdn.apache.org/tomcat/tomcat-{{tomcat_version.split('.')[0]}}/v{{tomcat_version}}/bin/apache-tomcat-{{tomcat_version}}.tar.gz
+         dest: /opt/tomcat
+     - name: extract tomcat packages
+       unarchive:
+        src: /opt/tomcat/apache-tomcat-{{tomcat_version}}.tar.gz
+        dest: /opt/tomcat
+        remote_src: yes
+     - name: change ownership of folder
+       comand: sudo chown -R tomcat:tomcat /opt/tomcat/
+     - name: change folder permission
+       command: sudo chmod -R u+x /opt/tomcat/bin
+     - name: setting tomcat user
+       template:
+         src: /mypath/tomcat-users_template.js
+         dest: /opt/tomcat/conf/tomcat-users.xml
+     - name: setting up manager context
+       template:
+         src: /mypath/manager-context_template.js
+         dest: /opt/tomcat/webapps/manager/META-INF/context.xml
+     - name: setting up host-manager context
+         src: /mypath/host-manager-context_template.js
+         dest: /opt/tomcat/webapps/host-manager/META-INF/context.xml
+     - name: reload systemd daemond
+       command: sudo systemctl daemon-reload
+     - name: start tomcat
+       command: sudo systemctl start tomcat
+     - name: check status of tomcat
+       command: systemctl status tomcat
+     - name: Enable tomcat to restart automatically
+       command: systemctl enable tomcat
+       
+       

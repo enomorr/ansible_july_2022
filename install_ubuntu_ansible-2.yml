@@ -1,0 +1,68 @@
+ - name: deploying tomcat
+   hosts: all
+   become: yes
+   vars:
+     tomcat_version: 10.0.22
+     tomcat_user: tomcat
+     tomcat_user_password: tomcat
+     admin_user: admin
+     admin_password: adminpassword
+   tasks: 
+     - name: stopping tomcat service
+       command: sudo systemctl stop tomcat.service
+       ignore_errors: yes
+     #- name: removing tomcat user
+       #command: sudo userdel tomcat
+       #ignore_errors: yes
+
+     - name: adding tomcat user
+       command: sudo useradd -m -d /opt/tomcat -U -s /bin/false tomcat
+       ignore_errors: yes
+     - name: update repo
+       command: sudo apt update
+     - name: install java jdk
+       apt:
+          name: openjdk-11-jdk
+          state: present
+     - name: delete all contents in /opt directory
+       command: sudo rm -rf /opt/tomcat/latest
+
+     - name: download tomcat server packages
+       get_url:
+         url: https://dlcdn.apache.org/tomcat/tomcat-{{tomcat_version.split('.')[0]}}/v{{tomcat_version}}/bin/apache-tomcat-{{tomcat_version}}.tar.gz
+         dest: /opt/tomcat
+     - name: extract tomcat packages
+       unarchive:
+        src: /opt/tomcat/apache-tomcat-{{tomcat_version}}.tar.gz
+        dest: /opt/tomcat
+        remote_src: yes
+     - name: Create a symbolic link called later
+       command: sudo ln -s /opt/tomcat/apache-tomcat-{{tomcat_version}} /opt/tomcat/latest
+     - name: change ownership of folder
+       command: sudo chown -R tomcat:tomcat /opt/tomcat/
+     - name: Make tomcat startup file in bin directory executable
+       command: sudo chmod +x /opt/tomcat/latest
+     - name: setting tomcat user
+       template:
+         src: /home/ubuntu/ansible-learn/ansible_files/my-test-ansible-files/tomcat-users_template.js
+         dest: /opt/tomcat/latest/conf/tomcat-users.xml
+     - name: setting up manager context
+       template:
+         src: /home/ubuntu/ansible-learn/ansible_files/my-test-ansible-files/manager-context_template.js
+         dest: /opt/tomcat/latest/webapps/manager/META-INF/context.xml
+     - name: setting up host-manager context
+       template:
+         src: /home/ubuntu/ansible-learn/ansible_files/my-test-ansible-files/host-manager-context_template.js
+         dest: /opt/tomcat/latest/webapps/host-manager/META-INF/context.xml
+     - name: setting tomcat service
+       template:
+          src: /home/ubuntu/ansible-learn/ansible_files/my-test-ansible-files/tomcat.service.js
+          dest: /etc/systemd/system/tomcat.service
+     - name: reload systemd daemond
+       command: sudo systemctl daemon-reload
+     - name: start tomcat
+       command: sudo systemctl start tomcat
+       #     - name: check status of tomcat
+       #       command: systemctl status tomcat
+     - name: Enable tomcat to restart automatically
+       command: sudo systemctl enable tomcat
